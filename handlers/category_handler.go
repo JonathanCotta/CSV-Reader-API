@@ -42,28 +42,14 @@ func SaveCategory(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	exists, err := db.CategoryExists(db.Database, &cat)
-
-	if err != nil {
-		utils.ErrorResponse(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	if exists {
-		utils.ErrorResponse(w, "Registro já existe", http.StatusConflict)
-		return
-	}
-
 	cat.Active = true
 
-	id, err := db.SaveCategory(db.Database, cat.Name)
+	err = db.SaveCategory(db.Database, &cat)
 
 	if err != nil {
 		utils.ErrorResponse(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-
-	cat.Id = id
 
 	utils.DataResponse(w, "Successiful request", cat)
 }
@@ -78,18 +64,6 @@ func UpdateCategory(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		utils.ErrorResponse(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	exists, err := db.CategoryExists(db.Database, &cat)
-
-	if err != nil {
-		utils.ErrorResponse(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	if !exists {
-		utils.ErrorResponse(w, "Registro não existe", http.StatusConflict)
 		return
 	}
 

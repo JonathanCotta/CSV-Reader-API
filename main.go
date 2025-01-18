@@ -20,11 +20,11 @@ func main() {
 	err := db.Connect()
 
 	if err != nil {
-		log.Fatal("Error - failed database connection: ", err)
+		log.Fatal("error - failed database connection: ", err)
 	}
 
 	if db.Database == nil {
-		log.Fatal("Error - no database connection")
+		log.Fatal("error - no database connection")
 	}
 
 	defer db.Database.Close()
