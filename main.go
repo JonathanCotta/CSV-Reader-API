@@ -16,6 +16,10 @@ func main() {
 	http.HandleFunc("POST /category", handlers.SaveCategory)
 	http.HandleFunc("PUT /category", handlers.UpdateCategory)
 	http.HandleFunc("DELETE /category/{id}", handlers.DisableCategory)
+	http.HandleFunc("GET /expenses", handlers.GetAllExpsenses)
+	http.HandleFunc("POST /expense", handlers.SaveExpense)
+	http.HandleFunc("PUT /expense", handlers.UpdateExpense)
+	http.HandleFunc("DELETE /expense/{id}", handlers.DisableExpense)
 
 	err := db.Connect()
 
