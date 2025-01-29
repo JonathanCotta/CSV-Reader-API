@@ -116,6 +116,27 @@ func GetExpenseById(db *sql.DB, expenseId int) (*models.Expense, error) {
 	return &e, nil
 }
 
+func GetExpenseByTitle(db *sql.DB, t string) (*models.Expense, error) {
+	query := `SELECT e.id, e.title, c.id, c.name, e.is_active 
+	FROM expenses e
+	LEFT JOIN categories c ON e.category_id = c.id
+	WHERE e.title = $1`
+
+	var e models.Expense
+
+	err := db.QueryRow(query, t).Scan(&e.Id, &e.Title, &e.CategoryId, &e.Category, &e.Active)
+
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, errors.New("expense not found")
+		}
+
+		return nil, err
+	}
+
+	return &e, nil
+}
+
 func UpdateExpense(db *sql.DB, e *models.Expense) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Millisecond)
 	defer cancel()
@@ -195,11 +216,17 @@ func SaveExpensesBatch(db *sql.DB, e map[string]models.Expense) error {
 		}
 
 		if !exists {
-			_, err := stmt.ExecContext(ctx, expense.Title, expense.CategoryId)
+			var newId int
+
+			err := stmt.QueryRowContext(ctx, expense.Title, expense.CategoryId).Scan(&newId)
 
 			if err != nil {
 				return fmt.Errorf("error - failed to save expense %s: %v", expense.Title, err)
 			}
+
+			expense.Id = newId
+
+			e[expense.Title] = expense
 		}
 	}
 
