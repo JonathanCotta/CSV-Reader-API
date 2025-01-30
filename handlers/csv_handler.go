@@ -84,8 +84,7 @@ func GetCsvExpenses(file multipart.File) (map[string]models.Expense, error) {
 }
 
 func GetExpensesCategories(es map[string]models.Expense) error {
-	newExpenses := make(map[string]models.Expense)
-
+	var hasNewExpense bool
 	for t, e := range es {
 		eData, err := db.GetExpenseByTitle(db.Database, e.Title)
 
@@ -94,26 +93,23 @@ func GetExpensesCategories(es map[string]models.Expense) error {
 		}
 
 		if eData == nil {
-			newExpenses[t] = e
-		} else {
-			e.Id = eData.Id
-			e.Active = eData.Active
-			e.CategoryId = eData.CategoryId
-			e.Category = eData.Category
-
-			es[t] = e
+			hasNewExpense = true
+			continue
 		}
+
+		e.Id = eData.Id
+		e.Active = eData.Active
+		e.CategoryId = eData.CategoryId
+		e.Category = eData.Category
+
+		es[t] = e
 	}
 
-	if len(newExpenses) > 0 {
-		err := db.SaveExpensesBatch(db.Database, newExpenses)
+	if hasNewExpense {
+		err := db.SaveExpensesBatch(db.Database, es)
 
 		if err != nil {
 			return err
-		}
-
-		for t, e := range newExpenses {
-			es[t] = e
 		}
 	}
 
@@ -122,10 +118,10 @@ func GetExpensesCategories(es map[string]models.Expense) error {
 
 func CsvUploadHandler(w http.ResponseWriter, r *http.Request) {
 	// get form data
-	err := r.ParseMultipartForm(10 << 20)
+	err := r.ParseMultipartForm(32 << 20)
 
 	if err != nil {
-		utils.ErrorResponse(w, "Error: File to large", http.StatusBadRequest)
+		utils.ErrorResponse(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
@@ -151,11 +147,11 @@ func CsvUploadHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// get expenses categories
+	// get/insert expenses from database
 	err = GetExpensesCategories(expenses)
 
 	if err != nil {
-		utils.ErrorResponse(w, "Error: retriving data from database", http.StatusInternalServerError)
+		utils.ErrorResponse(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 

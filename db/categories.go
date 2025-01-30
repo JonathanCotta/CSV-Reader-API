@@ -55,6 +55,24 @@ func GetCategoryById(db *sql.DB, categoryId int) (*models.Category, error) {
 	return &c, nil
 }
 
+func GetCategoryByName(db *sql.DB, cName string) (*models.Category, error) {
+	query := "SELECT id, name FROM categories WHERE name = $1"
+
+	var c models.Category
+
+	err := db.QueryRow(query, cName).Scan(&c.Id, &c.Name)
+
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, errors.New("category not found")
+		}
+
+		return nil, err
+	}
+
+	return &c, nil
+}
+
 func CategoryExists(tx *sql.Tx, c *models.Category) (bool, error) {
 	var exists bool
 

@@ -18,7 +18,7 @@ func ExpenseExists(tx *sql.Tx, e *models.Expense) (bool, error) {
 	err := tx.QueryRow(query, e.Title, e.Id).Scan(&exists)
 
 	if err != nil {
-		return false, fmt.Errorf("error - failed to verify if expense exists: %v", err)
+		return false, fmt.Errorf("error - failed to verify if expense exists: %v", err.Error())
 	}
 
 	return exists, err
@@ -31,7 +31,7 @@ func SaveExpense(db *sql.DB, expense *models.Expense) error {
 	tx, err := db.BeginTx(ctx, nil)
 
 	if err != nil {
-		return fmt.Errorf("error - failed to start transaction: %w", err)
+		return fmt.Errorf("error - failed to start transaction: %s", err.Error())
 	}
 
 	defer tx.Rollback()
@@ -39,7 +39,7 @@ func SaveExpense(db *sql.DB, expense *models.Expense) error {
 	exists, err := ExpenseExists(tx, expense)
 
 	if err != nil {
-		return fmt.Errorf("error - failed check if expense exists: %w", err)
+		return fmt.Errorf("error - failed check if expense exists: %s", err.Error())
 	}
 
 	if exists {
@@ -57,7 +57,7 @@ func SaveExpense(db *sql.DB, expense *models.Expense) error {
 	}
 
 	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("error - failed to commit transaction: %w", err)
+		return fmt.Errorf("error - failed to commit transaction: %s", err.Error())
 	}
 
 	expense.Id = id
@@ -72,7 +72,7 @@ func GetAllExpenses(db *sql.DB, isActive bool) ([]models.Expense, error) {
 	rows, err := db.Query(query, isActive)
 
 	if err != nil {
-		log.Fatal("erro ao buscar: ", err)
+		log.Fatal("erro ao buscar: ", err.Error())
 		return nil, err
 	}
 
@@ -128,7 +128,7 @@ func GetExpenseByTitle(db *sql.DB, t string) (*models.Expense, error) {
 
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, errors.New("expense not found")
+			return nil, nil
 		}
 
 		return nil, err
@@ -144,7 +144,7 @@ func UpdateExpense(db *sql.DB, e *models.Expense) error {
 	tx, err := db.BeginTx(ctx, nil)
 
 	if err != nil {
-		log.Fatal("error - failed to start transaction:", err)
+		log.Fatal("error - failed to start transaction:", err.Error())
 		return err
 	}
 
@@ -153,7 +153,7 @@ func UpdateExpense(db *sql.DB, e *models.Expense) error {
 	exists, err := ExpenseExists(tx, e)
 
 	if err != nil {
-		log.Fatal("error - failed check if expense exists:", err)
+		log.Fatal("error - failed check if expense exists:", err.Error())
 		return err
 	}
 
@@ -180,20 +180,27 @@ func UpdateExpense(db *sql.DB, e *models.Expense) error {
 	}
 
 	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("error - failed to commit transaction: %w", err)
+		return fmt.Errorf("error - failed to commit transaction: %s", err.Error())
 	}
 
 	return nil
 }
 
 func SaveExpensesBatch(db *sql.DB, e map[string]models.Expense) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Millisecond)
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 	defer cancel()
 
 	tsx, err := db.BeginTx(ctx, nil)
 
 	if err != nil {
-		log.Fatal("error - failed to start transaction:", err)
+		log.Fatal("error - failed to start transaction:", err.Error())
+		return err
+	}
+
+	defaultCategory, err := GetCategoryByName(db, "Outros")
+
+	if err != nil {
+		log.Fatal("error - failed to get default category:", err.Error())
 		return err
 	}
 
@@ -202,36 +209,34 @@ func SaveExpensesBatch(db *sql.DB, e map[string]models.Expense) error {
 	stmt, err := tsx.PrepareContext(ctx, "INSERT INTO expenses (title, category_id) VALUES ($1, $2) RETURNING id")
 
 	if err != nil {
-		log.Fatal("error - failed to prepare statement:", err)
+		log.Fatal("error - failed to prepare statement:", err.Error())
 		return err
 	}
 
 	defer stmt.Close()
 
 	for _, expense := range e {
-		exists, err := ExpenseExists(tsx, &expense)
+		if expense.Id != 0 {
+			continue
+		}
+
+		var newId int
+
+		err := stmt.QueryRowContext(ctx, expense.Title, defaultCategory.Id).Scan(&newId)
 
 		if err != nil {
-			return fmt.Errorf("error - failed to save expense %s: %v", expense.Title, err)
+			return fmt.Errorf("error - failed to save expense %s: %v", expense.Title, err.Error())
 		}
 
-		if !exists {
-			var newId int
+		expense.Id = newId
+		expense.Category = defaultCategory.Name
+		expense.CategoryId = defaultCategory.Id
 
-			err := stmt.QueryRowContext(ctx, expense.Title, expense.CategoryId).Scan(&newId)
-
-			if err != nil {
-				return fmt.Errorf("error - failed to save expense %s: %v", expense.Title, err)
-			}
-
-			expense.Id = newId
-
-			e[expense.Title] = expense
-		}
+		e[expense.Title] = expense
 	}
 
 	if err := tsx.Commit(); err != nil {
-		return fmt.Errorf("error - failed to commit transaction: %w", err)
+		return fmt.Errorf("error - failed to commit transaction: %s", err.Error())
 	}
 
 	return nil

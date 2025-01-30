@@ -11,7 +11,6 @@ import (
 
 func main() {
 	http.HandleFunc("GET /healthcheck", handlers.HealthCheckHandler)
-	http.HandleFunc("POST /upload", handlers.FileUploadHandler)
 	http.HandleFunc("GET /categories", handlers.GetCategories)
 	http.HandleFunc("POST /category", handlers.SaveCategory)
 	http.HandleFunc("PUT /category", handlers.UpdateCategory)
@@ -20,6 +19,7 @@ func main() {
 	http.HandleFunc("POST /expense", handlers.SaveExpense)
 	http.HandleFunc("PUT /expense", handlers.UpdateExpense)
 	http.HandleFunc("DELETE /expense/{id}", handlers.DisableExpense)
+	http.HandleFunc("POST /upload", handlers.CsvUploadHandler)
 
 	err := db.Connect()
 
